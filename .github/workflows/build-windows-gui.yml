@@ -1,6 +1,6 @@
 name: Build Windows GUI
 
-on:
+"on":
   push:
     branches: [main, master]
     tags: ['v*']
