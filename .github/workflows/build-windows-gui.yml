@@ -1,0 +1,63 @@
+name: Build Windows GUI
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: nextgen-handler-gui/package-lock.json
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: nextgen-handler-gui/src-tauri -> target
+
+      - name: Install frontend dependencies
+        working-directory: nextgen-handler-gui
+        run: npm ci
+
+      - name: Build Tauri app
+        working-directory: nextgen-handler-gui
+        run: npm run tauri build
+
+      - name: Upload Windows build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextgen-handler-gui-windows
+          path: |
+            nextgen-handler-gui/src-tauri/target/release/bundle/**
+            nextgen-handler-gui/src-tauri/target/release/nextgen-handler-gui.exe
+          if-no-files-found: error
+
+      - name: Upload assets to GitHub Release (tags)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            nextgen-handler-gui/src-tauri/target/release/bundle/**
+            nextgen-handler-gui/src-tauri/target/release/nextgen-handler-gui.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
